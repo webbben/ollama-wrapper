@@ -16,8 +16,7 @@ Parameters: https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-p
 */
 
 const (
-	model   = "llama3"
-	baseURL = "http://localhost:11434/"
+	model = "llama3"
 )
 
 // starts the ollama server, and returns its Cmd reference so the process can be managed later
