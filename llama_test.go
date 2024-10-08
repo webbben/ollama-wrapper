@@ -5,8 +5,6 @@ import (
 	"log"
 	"strings"
 	"testing"
-
-	"github.com/ollama/ollama/api"
 )
 
 // run in terminal:
@@ -24,7 +22,7 @@ func TestChatCompletion(t *testing.T) {
 	}
 
 	// test the ChatCompletion function
-	messages := []api.Message{
+	messages := []Message{
 		{
 			Role:    "user",
 			Content: "Say the word 'llama' to me, and nothing else.",
@@ -55,13 +53,13 @@ func TestChatCompletionStream(t *testing.T) {
 	}
 
 	// test the ChatCompletionStream function
-	messages := []api.Message{
+	messages := []Message{
 		{
 			Role:    "user",
 			Content: "Say the word 'llama' to me, and nothing else.",
 		},
 	}
-	res, err := ChatCompletionStream(client, messages, func(cr api.ChatResponse) error {
+	res, err := ChatCompletionStream(client, messages, func(cr ChatResponse) error {
 		fmt.Print(cr.Message.Content)
 		return nil
 	})
@@ -118,7 +116,7 @@ func TestGenerateCompletionStream(t *testing.T) {
 	// test the GenerateCompletionStream function
 	sysPrompt := "repeat after me: "
 	prompt := "llama"
-	res, err := GenerateCompletionStream(client, sysPrompt, prompt, func(gr api.GenerateResponse) error {
+	res, err := GenerateCompletionStream(client, sysPrompt, prompt, func(gr GenerateResponse) error {
 		fmt.Print(gr.Response)
 		return nil
 	})

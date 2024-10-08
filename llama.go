@@ -39,16 +39,19 @@ func GetClient() (*api.Client, error) {
 }
 
 // Call the Chat Completion API. Meant for conversations where past message context is needed.
-func ChatCompletion(client *api.Client, messages []api.Message) ([]api.Message, error) {
+func ChatCompletion(client *api.Client, chatMessages []Message) ([]Message, error) {
+	messages := convertWrapperMessages(chatMessages)
 	responseFunc := func(cr api.ChatResponse) error {
 		messages = append(messages, cr.Message)
 		return nil
 	}
 	err := chatCompletion(client, messages, false, responseFunc)
-	return messages, err
+
+	return wrapMessages(messages), err
 }
 
-func ChatCompletionStream(client *api.Client, messages []api.Message, responseFunc func(cr api.ChatResponse) error) ([]api.Message, error) {
+func ChatCompletionStream(client *api.Client, chatMessages []Message, responseFunc func(cr ChatResponse) error) ([]Message, error) {
+	messages := convertWrapperMessages(chatMessages)
 	var nextMessage *api.Message = nil
 	respFunc := func(cr api.ChatResponse) error {
 		if nextMessage == nil {
@@ -56,12 +59,12 @@ func ChatCompletionStream(client *api.Client, messages []api.Message, responseFu
 		} else {
 			nextMessage.Content += cr.Message.Content // combine the incoming stream to get the full next message
 		}
-		return responseFunc(cr)
+		return responseFunc(wrapChatResponse(cr))
 	}
 
 	err := chatCompletion(client, messages, true, respFunc)
 	messages = append(messages, *nextMessage)
-	return messages, err
+	return wrapMessages(messages), err
 }
 
 func chatCompletion(client *api.Client, messages []api.Message, stream bool, responseFunc func(cr api.ChatResponse) error) error {
@@ -104,11 +107,11 @@ func GenerateCompletion(client *api.Client, systemPrompt string, prompt string) 
 	return response, err
 }
 
-func GenerateCompletionStream(client *api.Client, systemPrompt string, prompt string, responseFunc func(gr api.GenerateResponse) error) (string, error) {
+func GenerateCompletionStream(client *api.Client, systemPrompt string, prompt string, responseFunc func(gr GenerateResponse) error) (string, error) {
 	response := ""
-	respFunc := func(cr api.GenerateResponse) error {
-		response += cr.Response
-		return responseFunc(cr)
+	respFunc := func(gr api.GenerateResponse) error {
+		response += gr.Response
+		return responseFunc(wrapGenerateResponse(gr))
 	}
 
 	err := generateCompletion(client, prompt, systemPrompt, true, respFunc, nil)
