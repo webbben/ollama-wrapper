@@ -15,9 +15,14 @@ API: https://github.com/ollama/ollama/blob/main/docs/api.md
 Parameters: https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
 */
 
-const (
+var (
 	model = "llama3"
 )
+
+// SetModel lets you choose a specific model to use. By default, llama3 is used.
+func SetModel(newModel string) {
+	model = newModel
+}
 
 // starts the ollama server, and returns its Cmd reference so the process can be managed later
 func StartServer() (*exec.Cmd, error) {

@@ -16,6 +16,8 @@ func main() {
 	}
 	defer llama.StopServer(cmd)
 
+	llama.SetModel("codellama") // set a custom model (optional)
+
 	// get client
 	client, err := llama.GetClient()
 	if err != nil {
@@ -25,6 +27,8 @@ func main() {
 	// start a chat session with streaming
 	messages := make([]llama.Message, 0)
 	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Println("Starting chat. Say something!")
 	for {
 		// get user input
 		input, err := reader.ReadString('\n')
