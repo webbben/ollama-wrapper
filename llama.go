@@ -2,6 +2,7 @@ package ollamawrapper
 
 import (
 	"context"
+	"encoding/json"
 	"os/exec"
 
 	"github.com/ollama/ollama/api"
@@ -97,6 +98,23 @@ func GenerateCompletionWithOpts(client *api.Client, systemPrompt string, prompt 
 	return response, err
 }
 
+// Generate a completion using custom options, and specifying a specific json output format.
+//
+// Below are some common options, but find more information about options params here:
+//
+// https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
+//
+// "temperature": float (default: 0.8) - increasing this will make the model answer more creatively
+func GenerateCompletionOptsFormat(client *api.Client, systemPrompt string, prompt string, opts map[string]interface{}, format json.RawMessage) (string, error) {
+	response := ""
+	responseFunc := func(gr api.GenerateResponse) error {
+		response += gr.Response
+		return nil
+	}
+	err := generateCompletionFormatted(client, prompt, systemPrompt, false, responseFunc, opts, format)
+	return response, err
+}
+
 // Generates a completion using the given system prompt to set the context and AI behavior/personality, and based on the given prompt.
 //
 // Use ChatCompletion for conversations and memory based generation.
@@ -131,6 +149,19 @@ func generateCompletion(client *api.Client, prompt, sysPrompt string, stream boo
 		System:  sysPrompt,
 		Stream:  &stream,
 		Options: opts,
+	}
+	return client.Generate(ctx, req, responseFunc)
+}
+
+func generateCompletionFormatted(client *api.Client, prompt, sysPrompt string, stream bool, responseFunc func(gr api.GenerateResponse) error, opts map[string]interface{}, format json.RawMessage) error {
+	ctx := context.Background()
+	req := &api.GenerateRequest{
+		Model:   model,
+		Prompt:  prompt,
+		System:  sysPrompt,
+		Stream:  &stream,
+		Options: opts,
+		Format:  format,
 	}
 	return client.Generate(ctx, req, responseFunc)
 }

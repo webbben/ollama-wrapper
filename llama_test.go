@@ -1,8 +1,10 @@
 package ollamawrapper
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -128,5 +130,66 @@ func TestGenerateCompletionStream(t *testing.T) {
 	}
 	if !strings.Contains(strings.ToLower(res), "llama") {
 		log.Fatalf("generated completion returned unexpected message: %s", res)
+	}
+}
+
+type genCompJsonFormat struct {
+	Name       string   `json:"name"`
+	Population int      `json:"population"`
+	Languages  []string `json:"languages"`
+}
+
+func TestGenerateCompletionFormat(t *testing.T) {
+	cmd, err := StartServer()
+	if err != nil {
+		log.Fatal("failed to start ollama server:", err)
+	}
+	defer StopServer(cmd)
+
+	client, err := GetClient()
+	if err != nil {
+		log.Fatal("failed to get ollama client:", err)
+	}
+
+	// test the GenerateCompletionFormat function
+	sysPrompt := "tell me information about the given country. for languages, just give me the top 3 if there are multiple."
+	prompt := "United States"
+	jsonFormat := json.RawMessage(`{
+	"type": "object",
+	"properties": {
+		"name": {
+			"type": "string"
+		},
+		"population": {
+			"type": "number"
+		},
+		"languages": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			}
+		}
+	},
+	"required": ["name", "population", "languages"]
+}`)
+
+	res, err := GenerateCompletionOptsFormat(client, sysPrompt, prompt, nil, jsonFormat)
+	if err != nil {
+		log.Fatal("failed to generate completion stream:", err)
+	}
+	if res == "" {
+		log.Fatal("generated completion is empty")
+	}
+	log.Println(res)
+	var result genCompJsonFormat
+	err = json.Unmarshal([]byte(res), &result)
+	if err != nil {
+		log.Fatal("failed to unmarshal result; is output malformed or incorrect?", err)
+	}
+	if !strings.Contains(strings.ToLower(result.Name), "united states") {
+		log.Fatalf("Incorrect: expected '%s', got '%s'", "united states", result.Name)
+	}
+	if !(slices.Contains(result.Languages, "English") || slices.Contains(result.Languages, "english")) {
+		log.Fatalf("Incorrect: expected 'english' to be in languages. got: %v", result.Languages)
 	}
 }
