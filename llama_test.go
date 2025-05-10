@@ -12,11 +12,13 @@ import (
 // run in terminal:
 // go test -run ^TestChatCompletion$ github.com/webbben/ollama-wrapper
 func TestChatCompletion(t *testing.T) {
-	cmd, err := StartServer()
+	pid, err := StartServer()
 	if err != nil {
 		log.Fatal("failed to start ollama server:", err)
 	}
-	defer StopServer(cmd)
+	if pid == -1 {
+		log.Fatal("failed to start ollama server: returned pid is -1")
+	}
 
 	client, err := GetClient()
 	if err != nil {
@@ -43,11 +45,13 @@ func TestChatCompletion(t *testing.T) {
 }
 
 func TestChatCompletionStream(t *testing.T) {
-	cmd, err := StartServer()
+	pid, err := StartServer()
 	if err != nil {
 		log.Fatal("failed to start ollama server:", err)
 	}
-	defer StopServer(cmd)
+	if pid == -1 {
+		log.Fatal("failed to start ollama server: returned pid is -1")
+	}
 
 	client, err := GetClient()
 	if err != nil {
@@ -77,11 +81,13 @@ func TestChatCompletionStream(t *testing.T) {
 }
 
 func TestGenerateCompletion(t *testing.T) {
-	cmd, err := StartServer()
+	pid, err := StartServer()
 	if err != nil {
 		log.Fatal("failed to start ollama server:", err)
 	}
-	defer StopServer(cmd)
+	if pid == -1 {
+		log.Fatal("failed to start ollama server: returned pid is -1")
+	}
 
 	client, err := GetClient()
 	if err != nil {
@@ -104,11 +110,13 @@ func TestGenerateCompletion(t *testing.T) {
 }
 
 func TestGenerateCompletionStream(t *testing.T) {
-	cmd, err := StartServer()
+	pid, err := StartServer()
 	if err != nil {
 		log.Fatal("failed to start ollama server:", err)
 	}
-	defer StopServer(cmd)
+	if pid == -1 {
+		log.Fatal("failed to start ollama server: returned pid is -1")
+	}
 
 	client, err := GetClient()
 	if err != nil {
@@ -140,11 +148,13 @@ type genCompJsonFormat struct {
 }
 
 func TestGenerateCompletionFormat(t *testing.T) {
-	cmd, err := StartServer()
+	pid, err := StartServer()
 	if err != nil {
 		log.Fatal("failed to start ollama server:", err)
 	}
-	defer StopServer(cmd)
+	if pid == -1 {
+		log.Fatal("failed to start ollama server: returned pid is -1")
+	}
 
 	client, err := GetClient()
 	if err != nil {

@@ -3,9 +3,11 @@ package ollamawrapper
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os/exec"
 
 	"github.com/ollama/ollama/api"
+	"github.com/shirou/gopsutil/v3/process"
 )
 
 /*
@@ -21,27 +23,132 @@ var (
 )
 
 // SetModel lets you choose a specific model to use. By default, llama3 is used.
+//
+// Note: Ensure the model has been pulled already before, or else an error may occur.
 func SetModel(newModel string) {
 	model = newModel
 }
 
-// starts the ollama server, and returns its Cmd reference so the process can be managed later
-func StartServer() (*exec.Cmd, error) {
-	cmd := exec.Command("ollama", "serve")
-	err := cmd.Start()
+// starts the ollama server (or finds its process if already running), and returns its PID
+func StartServer() (int32, error) {
+	pid, err := GetOllamaPID()
 	if err != nil {
-		return nil, err
+		return -1, errors.Join(errors.New("StartServer: failed to get ollama PID;"), err)
 	}
-	return cmd, nil
-}
+	if pid != -1 {
+		return pid, nil
+	}
 
-// stops the ollama server, killing the process
-func StopServer(cmd *exec.Cmd) error {
-	return cmd.Process.Kill()
+	// ollama isn't running yet, so start it ourselves
+	cmd := exec.Command("ollama", "serve")
+
+	err = cmd.Start()
+	if err != nil {
+		return -1, err
+	}
+
+	if cmd.Process == nil {
+		return -1, errors.New("StartServer: failed to get process after running start command")
+	}
+
+	return int32(cmd.Process.Pid), nil
 }
 
 func GetClient() (*api.Client, error) {
 	return api.ClientFromEnvironment()
+}
+
+func GetModel() string {
+	return model
+}
+
+// GetOllamaPID gets the PID of the first process it finds that has the name "ollama".
+//
+// If no process is found, returns -1.
+func GetOllamaPID() (int32, error) {
+	processes, err := process.Processes()
+	if err != nil {
+		return -1, err
+	}
+
+	for _, process := range processes {
+		name, err := process.Name()
+		if err != nil {
+			return -1, err
+		}
+		if name == "ollama" {
+			return process.Pid, nil
+		}
+	}
+
+	return -1, nil
+}
+
+type PullRequestProgress struct {
+	Status    string
+	Digest    string
+	Total     int64
+	Completed int64
+}
+
+func PullModel(modelName string, stream *bool, fn func(PullRequestProgress)) error {
+	client, err := GetClient()
+	if err != nil {
+		return errors.Join(errors.New("PullModel: failed to get client;"), err)
+	}
+
+	ctx := context.Background()
+
+	req := api.PullRequest{
+		Model:  modelName,
+		Stream: stream,
+	}
+
+	// since applications using this module as a dependency can't use ollama's base package and types directly,
+	// I made wrappers around this functionality so that it can be passed down to the consuming application.
+	var progressFn api.PullProgressFunc = func(pr api.ProgressResponse) error {
+		fn(PullRequestProgress{
+			Status:    pr.Status,
+			Digest:    pr.Digest,
+			Total:     pr.Total,
+			Completed: pr.Completed,
+		})
+		return nil
+	}
+
+	return client.Pull(ctx, &req, progressFn)
+}
+
+type Model struct {
+	Name   string
+	Digest string
+	Size   int64
+}
+
+// GetModels gets all models that are available locally
+func GetModels() ([]Model, error) {
+	client, err := GetClient()
+	if err != nil {
+		return nil, errors.Join(errors.New("GetModels: failed to get client;"), err)
+	}
+
+	resp, err := client.List(context.Background())
+	if err != nil {
+		return nil, errors.Join(errors.New("GetModels: error getting model list;"), err)
+	}
+	if resp == nil {
+		return nil, errors.New("GetModels: model list response is nil")
+	}
+
+	models := make([]Model, len(resp.Models))
+	for i, m := range resp.Models {
+		models[i] = Model{
+			Name:   m.Model,
+			Digest: m.Digest,
+			Size:   m.Size,
+		}
+	}
+	return models, nil
 }
 
 // Call the Chat Completion API. Meant for conversations where past message context is needed.

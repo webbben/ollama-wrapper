@@ -10,11 +10,13 @@ import (
 
 func main() {
 	// start server and close it upon exit
-	cmd, err := llama.StartServer()
+	pid, err := llama.StartServer()
 	if err != nil {
 		panic(err)
 	}
-	defer llama.StopServer(cmd)
+	if pid == -1 {
+		panic("failed to start ollama server; returned PID is -1")
+	}
 
 	llama.SetModel("codellama") // set a custom model (optional)
 
