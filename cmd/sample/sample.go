@@ -18,6 +18,9 @@ func main() {
 		panic("failed to start ollama server; returned PID is -1")
 	}
 
+	llama.EnsureModelIsPulled("codellama", true, func(prp llama.PullRequestProgress) {
+		fmt.Printf("\rPulling model: %v/%v (%s)", prp.Completed, prp.Total, prp.Status)
+	})
 	llama.SetModel("codellama") // set a custom model (optional)
 
 	// get client
@@ -25,6 +28,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Println("Ollama information")
+	fmt.Println("PID:", pid)
+	fmt.Println("Version:", client)
+	fmt.Println("Model:", llama.GetModel())
+
+	models, err := llama.GetModels()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Available models:")
+	fmt.Println(models)
 
 	// start a chat session with streaming
 	messages := make([]llama.Message, 0)

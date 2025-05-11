@@ -29,6 +29,24 @@ func SetModel(newModel string) {
 	model = newModel
 }
 
+// EnsureModelIsPulled ensures that the given model is available locally, and if not, triggers a pull request
+func EnsureModelIsPulled(model string, stream bool, fn func(PullRequestProgress)) error {
+	models, err := GetModels()
+	if err != nil {
+		return errors.Join(errors.New("EnsureModelIsPulled: failed to get local models;"), err)
+	}
+
+	for _, m := range models {
+		// model already exists; continue without pulling
+		if m.Name == model {
+			return nil
+		}
+	}
+
+	// model not found; trigger pull request
+	return PullModel(model, stream, fn)
+}
+
 // starts the ollama server (or finds its process if already running), and returns its PID
 func StartServer() (int32, error) {
 	pid, err := GetOllamaPID()
@@ -62,19 +80,27 @@ func GetModel() string {
 	return model
 }
 
+func GetVersion() (string, error) {
+	client, err := GetClient()
+	if err != nil {
+		return "", err
+	}
+	return client.Version(context.Background())
+}
+
 // GetOllamaPID gets the PID of the first process it finds that has the name "ollama".
 //
 // If no process is found, returns -1.
 func GetOllamaPID() (int32, error) {
 	processes, err := process.Processes()
 	if err != nil {
-		return -1, err
+		return -1, errors.Join(errors.New("GetOllamaPID: failed to get processes;"), err)
 	}
 
 	for _, process := range processes {
 		name, err := process.Name()
 		if err != nil {
-			return -1, err
+			continue
 		}
 		if name == "ollama" {
 			return process.Pid, nil
@@ -91,7 +117,7 @@ type PullRequestProgress struct {
 	Completed int64
 }
 
-func PullModel(modelName string, stream *bool, fn func(PullRequestProgress)) error {
+func PullModel(modelName string, stream bool, fn func(PullRequestProgress)) error {
 	client, err := GetClient()
 	if err != nil {
 		return errors.Join(errors.New("PullModel: failed to get client;"), err)
@@ -101,7 +127,7 @@ func PullModel(modelName string, stream *bool, fn func(PullRequestProgress)) err
 
 	req := api.PullRequest{
 		Model:  modelName,
-		Stream: stream,
+		Stream: &stream,
 	}
 
 	// since applications using this module as a dependency can't use ollama's base package and types directly,
@@ -163,6 +189,8 @@ func ChatCompletion(client *api.Client, chatMessages []Message) ([]Message, erro
 	return wrapMessages(messages), err
 }
 
+var ErrMessageEmpty error = errors.New("error generating completion: empty response")
+
 func ChatCompletionStream(client *api.Client, chatMessages []Message, responseFunc func(cr ChatResponse) error) ([]Message, error) {
 	messages := convertWrapperMessages(chatMessages)
 	var nextMessage *api.Message = nil
@@ -176,6 +204,13 @@ func ChatCompletionStream(client *api.Client, chatMessages []Message, responseFu
 	}
 
 	err := chatCompletion(client, messages, true, respFunc)
+	if err != nil {
+		return []Message{}, errors.Join(errors.New("ChatCompletionStream: error generating completion;"), err)
+	}
+	if nextMessage == nil {
+		return []Message{}, ErrMessageEmpty
+	}
+
 	messages = append(messages, *nextMessage)
 	return wrapMessages(messages), err
 }
